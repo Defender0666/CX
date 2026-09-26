@@ -40,8 +40,8 @@ CAREER_PATHS = [
 
 
 def _load_applications(page: ft.Page) -> list[dict[str, str]]:
-    stored = page.client_storage.get(STORAGE_KEY)
-    if not stored:
+    stored = page.shared_preferences.get(STORAGE_KEY)
+    if not isinstance(stored, str) or not stored:
         return []
     try:
         records = json.loads(stored)
@@ -66,7 +66,7 @@ def main(page: ft.Page) -> None:
     current_view = "Home"
 
     def persist_applications() -> None:
-        page.client_storage.set(STORAGE_KEY, json.dumps(applications))
+        page.shared_preferences.set(STORAGE_KEY, json.dumps(applications))
 
     def card(title: str, content: ft.Control) -> ft.Control:
         return ft.Container(
