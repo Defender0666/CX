@@ -1,0 +1,95 @@
+name: Build Android APK and publish web app
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: career-os-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: flet_app/requirements.txt
+      - name: Install Flet
+        run: python -m pip install -r flet_app/requirements.txt
+      - name: Build release APK
+        run: flet build apk flet_app --yes --no-rich-output --python-version 3.12
+      - name: Stage APK
+        run: |
+          mkdir -p artifacts
+          find flet_app/build -type f -name '*.apk' -print -quit | grep -q . || {
+            echo "Flet build completed without producing an APK." >&2
+            exit 1
+          }
+          find flet_app/build -type f -name '*.apk' -print -quit | xargs -I '{}' cp '{}' artifacts/Career-OS-Ultimate.apk
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Career-OS-Ultimate-Android-APK
+          path: artifacts/Career-OS-Ultimate.apk
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish rolling APK release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: android-latest
+          name: Latest Android APK
+          prerelease: true
+          make_latest: false
+          overwrite_files: true
+          files: artifacts/Career-OS-Ultimate.apk
+          body: |
+            Automatically built from the latest successful push to `main`.
+            This prerelease is unsigned for Play Store distribution; install only if you trust this project.
+
+  web:
+    name: Build and deploy GitHub Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: flet_app/requirements.txt
+      - name: Install Flet
+        run: python -m pip install -r flet_app/requirements.txt
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Build static web app
+        run: flet publish flet_app/main.py --base-url /CX/ --distpath dist
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Deploy to GitHub Pages
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        id: deployment
+        uses: actions/deploy-pages@v4

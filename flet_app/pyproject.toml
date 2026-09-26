@@ -1,0 +1,14 @@
+[project]
+name = "career-os-ultimate"
+version = "2.0.0"
+description = "Offline-first career path and verified application tracker."
+requires-python = ">=3.12,<3.13"
+dependencies = ["flet==0.86.0"]
+
+[tool.flet]
+org = "com.maccycreations"
+product = "Career OS Ultimate"
+company = "MACCY CREATIONS"
+
+[tool.flet.app]
+path = "."
